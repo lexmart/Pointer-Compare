@@ -19,7 +19,7 @@ To build on Linux make sure the libclang library and header files (the clang-c f
 
 Check out test1.cpp in the tests folder.
 
-Running ```analyze.exe ../tests/test1.cpp Atom``` from the build folder gives the following output:
+Running ```analyze ../tests/test1.cpp Atom``` from the build folder gives the following output:
 
 ```
 Comparing Atom pointers in ../tests/test1.cpp on line 12
