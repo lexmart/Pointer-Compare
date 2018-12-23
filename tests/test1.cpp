@@ -1,5 +1,4 @@
 struct Atom;
-
 #include "test2.cpp"
 
 struct Atom
@@ -45,6 +44,10 @@ int main()
 	if(&atoms[42] == a)
 	{
 	}
+
+	// macros
+#define is_equal(a, b) (a == b)
+	is_equal(a, b);
 
 	// nested comparisons
 	if((a == b) || true)
