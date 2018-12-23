@@ -16,7 +16,7 @@ enum Depth_State
 static CXTypeKind target_type = CXTypeKind::CXType_NullPtr;
 
 #define MAX_AST_DEPTH (1024*1024)
-static uint8_t depth_states[MAX_AST_DEPTH]; // 0 = haven't visited first operand yet, 1 = visited first operand 
+static uint8_t depth_states[MAX_AST_DEPTH];
 static char *target_type_name = 0;
 static bool did_compare_target_types = false;
 
