@@ -13,8 +13,6 @@ enum Depth_State
 	VISITED_FIRST_OP_AND_IS_TYPE,
 };
 
-static CXTypeKind target_type = CXTypeKind::CXType_NullPtr;
-
 #define MAX_AST_DEPTH (1024*1024)
 static uint8_t depth_states[MAX_AST_DEPTH];
 static char *target_type_name = 0;
@@ -32,18 +30,17 @@ static CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, void *depth_
 	if (parent_kind == CXCursorKind::CXCursor_BinaryOperator && parent_type.kind == CXTypeKind::CXType_Bool)
 	{
 		CXType type = clang_getCursorType(cursor);
-		bool is_pointer = (type.kind == CXTypeKind::CXType_Pointer) || (type.kind == CXTypeKind::CXType_MemberPointer) || (type.kind == CXType_BlockPointer);
-		if (target_type == CXTypeKind::CXType_NullPtr && is_pointer)
+		bool is_target = false;
+		if ((type.kind == CXTypeKind::CXType_Pointer) || (type.kind == CXTypeKind::CXType_MemberPointer) || (type.kind == CXType_BlockPointer))
 		{
 			CXType pointee_type = clang_getPointeeType(type);
 			const char *spelling = (const char *)clang_getTypeSpelling(pointee_type).data;
 			if (!strcmp(spelling, target_type_name))
 			{
-				target_type = pointee_type.kind;
+				is_target = spelling;
 			}
 		}
 
-		int is_target = is_pointer && (clang_getPointeeType(type).kind == target_type);
 		if(depth_states[ast_depth] == UNVISITED)
 		{
 			if (is_target)
