@@ -9,14 +9,16 @@
 enum Depth_State
 {
 	UNVISITED = 0,
-	VISITED_FIRST_OP_AND_IS_NOT_ATOM,
-	VISITED_FIRST_OP_AND_IS_ATOM,
+	VISITED_FIRST_OP_AND_IS_NOT_TYPE,
+	VISITED_FIRST_OP_AND_IS_TYPE,
 };
 
-static CXTypeKind atom_type = CXTypeKind::CXType_NullPtr;
+static CXTypeKind target_type = CXTypeKind::CXType_NullPtr;
 
 #define MAX_AST_DEPTH (1024*1024)
 static uint8_t depth_states[MAX_AST_DEPTH]; // 0 = haven't visited first operand yet, 1 = visited first operand 
+static char *target_type_name = 0;
+static bool did_compare_target_types = false;
 
 static CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, void *depth_ptr)
 {
@@ -31,38 +33,39 @@ static CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, void *depth_
 	{
 		CXType type = clang_getCursorType(cursor);
 		bool is_pointer = (type.kind == CXTypeKind::CXType_Pointer) || (type.kind == CXTypeKind::CXType_MemberPointer) || (type.kind == CXType_BlockPointer);
-		if (atom_type == CXTypeKind::CXType_NullPtr && is_pointer)
+		if (target_type == CXTypeKind::CXType_NullPtr && is_pointer)
 		{
 			CXType pointee_type = clang_getPointeeType(type);
 			const char *spelling = (const char *)clang_getTypeSpelling(pointee_type).data;
-			if (!strcmp(spelling, "Atom"))
+			if (!strcmp(spelling, target_type_name))
 			{
-				atom_type = pointee_type.kind;
+				target_type = pointee_type.kind;
 			}
 		}
 
-		int is_atom = is_pointer && (clang_getPointeeType(type).kind == atom_type);
+		int is_target = is_pointer && (clang_getPointeeType(type).kind == target_type);
 		if(depth_states[ast_depth] == UNVISITED)
 		{
-			if (is_atom)
+			if (is_target)
 			{
-				depth_states[ast_depth] = VISITED_FIRST_OP_AND_IS_ATOM;
+				depth_states[ast_depth] = VISITED_FIRST_OP_AND_IS_TYPE;
 			}
 			else
 			{
-				depth_states[ast_depth] = VISITED_FIRST_OP_AND_IS_NOT_ATOM;
+				depth_states[ast_depth] = VISITED_FIRST_OP_AND_IS_NOT_TYPE;
 			}
 		}
 		else
 		{
-			if (depth_states[ast_depth] == VISITED_FIRST_OP_AND_IS_ATOM && is_atom)
+			if (depth_states[ast_depth] == VISITED_FIRST_OP_AND_IS_TYPE && is_target)
 			{
 				CXSourceLocation location = clang_getCursorLocation(parent);
 				CXFile file;
 				unsigned int line, col, offset;
 				clang_getSpellingLocation(location, &file, &line, &col, &offset);
 				CXString file_name = clang_getFileName(file);
-				printf("Comparing atom pointers in %s on line %u\n", file_name.data, line);
+				printf("Comparing %s pointers in %s on line %u\n", target_type_name, file_name.data, line);
+				did_compare_target_types = true;
 			}
 
 			depth_states[ast_depth] = UNVISITED;
@@ -76,13 +79,14 @@ static CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, void *depth_
 
 int main(int argc, char **argv)
 {
-	if (argc != 2)
+	if (argc != 3)
 	{
-		printf("Usage: analyze main.cpp");
-		exit(0);
+		printf("Usage: analyze main.cpp TypeName");
+		exit(1);
 	}
 
 	memset(depth_states, 0, sizeof(depth_states));
+	target_type_name = argv[2];
 
 	CXIndex index = clang_createIndex(0, 0);
   	CXTranslationUnit unit = clang_parseTranslationUnit(index, argv[1], 0, 0, 0, 0, CXTranslationUnit_None);
@@ -94,15 +98,18 @@ int main(int argc, char **argv)
 		clang_disposeTranslationUnit(unit);
 		clang_disposeIndex(index);
 
-#if false
-		if (!state.compared_two_atoms)
+		if (!did_compare_target_types)
 		{
-			printf("No atom comparisons detected\n");
+			printf("No pointer comparisons of type %s detected\n", target_type_name);
 		}
-#endif
+		else
+		{
+			exit(1);
+		}
 	}
 	else
 	{
 		printf("Failed to parse %s\n", argv[1]);
+		exit(1);
 	}
 }
